@@ -75,7 +75,7 @@ ANSI <- R6::R6Class(
       self$font_aspect <- font_aspect
       self$bg_col      <- background
       self$text_colour <- text_colour
-      self$ansi_bits   <- ansi_bits
+      self$ansi_bits   <- as.integer(ansi_bits %||% 8)
 
       self$reset()
 
@@ -315,7 +315,7 @@ ANSI <- R6::R6Class(
       font_distort <- font_aspect / self$font_aspect
 
       if (r <= 1.5) {
-        self$set_pixels(xc, yc, bg = icolour)
+        self$set_pixels(xc, yc, bg = colour)
         return(invisible(self))
       }
 
@@ -431,38 +431,53 @@ ANSI <- R6::R6Class(
     #'        \code{plain_ascii=TRUE}
     #' @param char_lookup_table character table. default: 1. Choices: 1, 2, 3 Only used if
     #'        \code{plain_ascii=TRUE}
+    #' @param reverse_threshold black text on a dark background is mostly invisible.
+    #'        Any text on a bg colour below this intensity will be changed to
+    #'        a text colour of white. Set to 0 to disable this effect. Default: 0.4
     #' @param ... ignored
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    as_character = function(plain_ascii = FALSE, pow = 1, char_lookup_table = 1, ...) {
+    as_character = function(plain_ascii = FALSE, pow = 1, char_lookup_table = 1,
+                            reverse_threshold = 0.4, ...) {
 
+      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      # Is user just wants intensity mapped to ASCII chars, then do that
+      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       if (plain_ascii) {
         return(self$as_character_ascii(pow = pow, char_lookup_table = char_lookup_table, ...))
       }
 
-      # Find dark background and set the corresponding foreground to white
-      # instead of the default black
-      intensity <- rowMeans(t(col2rgb(self$bg)))
-      intensity <- apply(t(col2rgb(self$bg)), 1, function(x) {
-        (0.3 * x[1] + 0.59*x[2] + 0.11 * x[3])/255
-      })
-      chr <- self$chr
-      idx <- intensity < 0.4 & chr != ' '
-      chr[idx] <- paste0(col2fg('white'), chr[idx], reset_code)
-
+      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       # smash together the bg, fg and text layers
-      if (self$ansi_bits == 24) {
+      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      if (identical(self$ansi_bits, 24L)) {
         bg <- col2bg24(self$bg)
         fg <- col2fg24(self$fg)
       } else {
         bg <- col2bg(self$bg)
         fg <- col2fg(self$fg)
       }
+
+      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      # Find dark background and set the corresponding foreground to white
+      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      col       <- col2rgb(self$bg)
+      intensity <- (0.3 * col[1,] + 0.59 * col[2,] + 0.11 * col[3,])/255
+      idx       <- intensity < reverse_threshold
+      fg[idx]   <- col2fg('white')
+
+      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      # smash together the bg, fg and text layers
+      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       mat <- paste0(bg, fg, self$chr)
 
-      # Make sure the output matrix is the correct size
+      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      # Make sure the output matrix is the correct shape
+      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       dim(mat) <- dim(self$bg)
 
+      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       # return a single string
+      #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       collapse_matrix_to_string(mat, row_end = reset_code)
     },
 
@@ -473,7 +488,7 @@ ANSI <- R6::R6Class(
     #' @param ... ignored
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     save = function(filename, ...) {
-      writeLines(self$as_character(), filename)
+      writeLines(self$as_character(...), filename)
       invisible(self)
     },
 

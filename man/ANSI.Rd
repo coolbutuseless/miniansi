@@ -67,7 +67,7 @@ Initialise object
 \if{html}{\out{<div class="r">}}\preformatted{ANSI$new(
   width = 20,
   height = 20,
-  background = "lightblue",
+  background = "white",
   text_colour = "black",
   ansi_bits = 8,
   font_aspect = 1
@@ -318,7 +318,13 @@ Character representation with ANSI colouring}
 \if{latex}{\out{\hypertarget{method-as_character}{}}}
 \subsection{Method \code{as_character()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{ANSI$as_character(plain_ascii = FALSE, pow = 1, char_lookup_table = 1, ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{ANSI$as_character(
+  plain_ascii = FALSE,
+  pow = 1,
+  char_lookup_table = 1,
+  reverse_threshold = 0.4,
+  ...
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -332,6 +338,10 @@ ANSI output.  Default: FALSE}
 
 \item{\code{char_lookup_table}}{character table. default: 1. Choices: 1, 2, 3 Only used if
 \code{plain_ascii=TRUE}}
+
+\item{\code{reverse_threshold}}{black text on a dark background is mostly invisible.
+Any text on a bg colour below this intensity will be changed to
+a text colour of white. Set to 0 to disable this effect. Default: 0.4}
 
 \item{\code{...}}{ignored
 Save to file}
